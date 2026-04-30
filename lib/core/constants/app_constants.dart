@@ -1,0 +1,22 @@
+// App-wide constants
+// Sensitive keys (Supabase URL/key) live in lib/core/secrets.dart
+// which is gitignored. See secrets.dart.example for the template.
+class AppConstants {
+  AppConstants._();
+
+  // ── Storage buckets ───────────────────────────────────────
+  static const String avatarsBucket    = 'avatars';
+  static const String postImagesBucket = 'post-images';
+
+  // ── Pagination ────────────────────────────────────────────
+  static const int feedPageSize             = 20;
+  static const int notificationsPageSize    = 30;
+  static const int searchResultsLimit       = 15;
+
+  // ── Validation ────────────────────────────────────────────
+  static const int usernameMinLength = 3;
+  static const int usernameMaxLength = 30;
+  static const int bioMaxLength      = 160;
+  static const int postMaxLength     = 500;
+  static const int passwordMinLength = 6;
+}
