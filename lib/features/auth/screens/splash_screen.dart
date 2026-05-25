@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/router/app_router.dart';
+import '../../../data/repositories/users_repository.dart';
+import '../../../data/repositories/auth_repository.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
@@ -36,11 +38,46 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     Future.delayed(const Duration(milliseconds: 1800), _navigate);
   }
 
-  void _navigate() {
+  Future<void> _navigate() async {
     if (!mounted) return;
     final hasSession =
         Supabase.instance.client.auth.currentSession != null;
-    context.go(hasSession ? AppRoutes.home : AppRoutes.login);
+
+    if (!hasSession) {
+      context.go(AppRoutes.login);
+      return;
+    }
+
+    // Check profile status for pending/rejected users
+    try {
+      final profile = await UsersRepository().getOwnProfile();
+      if (!mounted) return;
+
+      if (profile == null) {
+        context.go(AppRoutes.login);
+        return;
+      }
+
+      // Handle approved email change — auto-process it
+      if (profile.status.startsWith('email_change_approved:')) {
+        final newEmail =
+            profile.status.replaceFirst('email_change_approved:', '');
+        try {
+          await AuthRepository().updateEmail(newEmail);
+          await UsersRepository().processApprovedEmailChange(newEmail);
+        } catch (_) {
+          // Continue even if processing fails
+        }
+      }
+
+      if (profile.isApproved) {
+        context.go(AppRoutes.home);
+      } else {
+        context.go(AppRoutes.approvalStatus);
+      }
+    } catch (_) {
+      if (mounted) context.go(AppRoutes.home);
+    }
   }
 
   @override
