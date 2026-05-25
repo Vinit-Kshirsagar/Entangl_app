@@ -96,10 +96,11 @@ class _StoryCircle extends StatelessWidget {
                     color: AppColors.backgroundDark,
                   ),
                 ),
-                // Avatar
+                // Avatar — onTap overrides default avatar viewer
                 AvatarWidget(
                   imageUrl: userStory.user.avatarUrl,
                   size: 52,
+                  onTap: onTap,
                 ),
                 // Add badge — bottom right only for own story
                 if (isOwn)
