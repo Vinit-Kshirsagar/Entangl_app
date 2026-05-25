@@ -11,6 +11,8 @@ import '../../features/comments/widgets/comments_sheet.dart';
 import '../../features/feed/providers/feed_provider.dart';
 import 'avatar_widget.dart';
 import 'reactions_sheet.dart';
+import 'avatar_viewer_screen.dart';
+import 'avatar_viewer_screen.dart';
 
 class PostCard extends ConsumerStatefulWidget {
   final PostModel post;
@@ -109,20 +111,33 @@ class _PostCardState extends ConsumerState<PostCard>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Header ─────────────────────────────────────
+         // ── Header ─────────────────────────────────────
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 14, 8, 0),
             child: Row(children: [
               GestureDetector(
                 onTap: () => context.push('/profile/${post.userId}'),
+                onLongPress: () {
+                  if (post.author?.avatarUrl != null &&
+                      post.author!.avatarUrl!.isNotEmpty) {
+                    AvatarViewerScreen.show(
+                      context,
+                      imageUrl: post.author!.avatarUrl!,
+                      heroTag: 'avatar_${post.userId}_feed',
+                    );
+                  }
+                },
                 child: AvatarWidget(
-                    imageUrl: post.author?.avatarUrl, size: 42),
+                  imageUrl: post.author?.avatarUrl,
+                  size: 42,
+                  heroTag: 'avatar_${post.userId}_feed',
+                  onTap: () => context.push('/profile/${post.userId}'),
+                ),
               ),
               const SizedBox(width: 10),
               Expanded(
                 child: GestureDetector(
-                  onTap: () =>
-                      context.push('/profile/${post.userId}'),
+                  onTap: () => context.push('/profile/${post.userId}'),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -176,8 +191,7 @@ class _PostCardState extends ConsumerState<PostCard>
                             color: AppColors.error, size: 18),
                         SizedBox(width: 8),
                         Text('Delete',
-                            style:
-                                TextStyle(color: AppColors.error)),
+                            style: TextStyle(color: AppColors.error)),
                       ]),
                     ),
                   ],

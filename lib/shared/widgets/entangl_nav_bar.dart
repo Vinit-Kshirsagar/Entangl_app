@@ -14,9 +14,18 @@ class EntanglNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Respect the system navigation bar height (button-nav devices like Samsung A55
+    // report a non-zero padding.bottom; gesture-nav devices report 0).
+    final systemNavBarHeight = MediaQuery.of(context).padding.bottom;
+
     return Padding(
-      padding: const EdgeInsets.only(
-          bottom: 24, left: 40, right: 40),
+      padding: EdgeInsets.only(
+        // If the device has a button nav bar, sit just above it (+ 8dp breathing room).
+        // If it uses gestures, keep the original 24dp bottom spacing.
+        bottom: systemNavBarHeight > 0 ? systemNavBarHeight + 8 : 24,
+        left:  40,
+        right: 40,
+      ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(100),
         child: BackdropFilter(
@@ -24,12 +33,10 @@ class EntanglNavBar extends StatelessWidget {
           child: Container(
             height: 68,
             decoration: BoxDecoration(
-              color: AppColors.surfaceContainerLow
-                  .withOpacity(0.92),
+              color: AppColors.surfaceContainerLow.withOpacity(0.92),
               borderRadius: BorderRadius.circular(100),
               border: Border.all(
-                color: AppColors.outlineVariant
-                    .withOpacity(0.2),
+                color: AppColors.outlineVariant.withOpacity(0.2),
                 width: 1,
               ),
               boxShadow: [
@@ -39,29 +46,27 @@ class EntanglNavBar extends StatelessWidget {
                   offset: const Offset(0, 10),
                 ),
                 BoxShadow(
-                  color: AppColors.gradientStart
-                      .withOpacity(0.08),
+                  color: AppColors.gradientStart.withOpacity(0.08),
                   blurRadius: 20,
                   offset: const Offset(0, 4),
                 ),
               ],
             ),
             child: Row(
-              mainAxisAlignment:
-                  MainAxisAlignment.spaceEvenly,
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
                 _NavItem(
-                  icon: Icons.home_outlined,
+                  icon:       Icons.home_outlined,
                   activeIcon: Icons.home_rounded,
-                  isActive: currentIndex == 0,
-                  onTap: () => onTap(0),
+                  isActive:   currentIndex == 0,
+                  onTap:      () => onTap(0),
                 ),
                 _CreateButton(onTap: () => onTap(1)),
                 _NavItem(
-                  icon: Icons.person_outline_rounded,
+                  icon:       Icons.person_outline_rounded,
                   activeIcon: Icons.person_rounded,
-                  isActive: currentIndex == 2,
-                  onTap: () => onTap(2),
+                  isActive:   currentIndex == 2,
+                  onTap:      () => onTap(2),
                 ),
               ],
             ),
@@ -102,21 +107,18 @@ class _NavItem extends StatelessWidget {
                 key: ValueKey(isActive),
                 color: isActive
                     ? AppColors.primary
-                    : AppColors.onSurfaceVariantDark
-                        .withOpacity(0.45),
+                    : AppColors.onSurfaceVariantDark.withOpacity(0.45),
                 size: 26,
               ),
             ),
             const SizedBox(height: 3),
             AnimatedContainer(
               duration: const Duration(milliseconds: 250),
-              curve: Curves.easeOutBack,
-              width:  isActive ? 20 : 0,
-              height: 3,
+              curve:    Curves.easeOutBack,
+              width:    isActive ? 20 : 0,
+              height:   3,
               decoration: BoxDecoration(
-                gradient: isActive
-                    ? AppColors.primaryGradient
-                    : null,
+                gradient:     isActive ? AppColors.primaryGradient : null,
                 borderRadius: BorderRadius.circular(100),
               ),
             ),
@@ -139,17 +141,16 @@ class _CreateButton extends StatelessWidget {
         width: 52, height: 52,
         decoration: BoxDecoration(
           gradient: AppColors.primaryGradient,
-          shape: BoxShape.circle,
+          shape:    BoxShape.circle,
           boxShadow: [
             BoxShadow(
-              color: AppColors.gradientStart.withOpacity(0.4),
+              color:      AppColors.gradientStart.withOpacity(0.4),
               blurRadius: 20,
-              offset: const Offset(0, 6),
+              offset:     const Offset(0, 6),
             ),
           ],
         ),
-        child: const Icon(Icons.add_rounded,
-            color: Colors.white, size: 28),
+        child: const Icon(Icons.add_rounded, color: Colors.white, size: 28),
       ),
     );
   }

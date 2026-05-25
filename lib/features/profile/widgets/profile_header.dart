@@ -24,13 +24,14 @@ class ProfileHeader extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Read follow state from local provider — instant, no DB wait
-    final followState  = ref.watch(followProvider);
-    final isFollowing  = isOwn ? false : followState.isFollowing;
-
-    // Apply local delta to follower count so it updates instantly
+    final followState      = ref.watch(followProvider);
+    final isFollowing      = isOwn ? false : followState.isFollowing;
     final displayedFollowers =
         stats.followerCount + (isOwn ? 0 : followState.followerDelta);
+
+    // Unique hero tag per user so multiple avatars on screen
+    // don't conflict with each other
+    final avatarHeroTag = 'avatar_${stats.user.id}';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -56,7 +57,6 @@ class ProfileHeader extends ConsumerWidget {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  // Avatar — offset up over banner
                   Transform.translate(
                     offset: const Offset(0, -28),
                     child: Container(
@@ -67,13 +67,16 @@ class ProfileHeader extends ConsumerWidget {
                           width: 3,
                         ),
                       ),
+                      // heroTag passed so the viewer animates
+                      // from exactly this widget
                       child: AvatarWidget(
-                          imageUrl: stats.user.avatarUrl,
-                          size: 72),
+                        imageUrl: stats.user.avatarUrl,
+                        size: 72,
+                        heroTag: avatarHeroTag,
+                      ),
                     ),
                   ),
                   const Spacer(),
-                  // Action buttons
                   if (isOwn) ...[
                     _OutlineButton(
                       label: 'Edit profile',
@@ -86,7 +89,6 @@ class ProfileHeader extends ConsumerWidget {
                       isDestructive: true,
                     ),
                   ] else
-                    // Follow / Following button — reads local state
                     _FollowButton(
                       isFollowing: isFollowing,
                       onTap: onFollowTap,
@@ -95,7 +97,6 @@ class ProfileHeader extends ConsumerWidget {
               ),
               const SizedBox(height: 4),
 
-              // ── Name + username ────────────────────────
               Text(stats.user.fullName,
                   style: AppTextStyles.sectionTitle
                       .copyWith(color: AppColors.onSurfaceDark)),
@@ -106,13 +107,11 @@ class ProfileHeader extends ConsumerWidget {
                 const SizedBox(height: 8),
                 Text(stats.user.bio!,
                     style: AppTextStyles.bodyMedium.copyWith(
-                        color:
-                            AppColors.onSurfaceVariantDark)),
+                        color: AppColors.onSurfaceVariantDark)),
               ],
 
               const SizedBox(height: 16),
 
-              // ── Stats row ──────────────────────────────
               Container(
                 padding: const EdgeInsets.symmetric(
                     horizontal: 20, vertical: 14),
@@ -121,22 +120,14 @@ class ProfileHeader extends ConsumerWidget {
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Row(
-                  mainAxisAlignment:
-                      MainAxisAlignment.spaceBetween,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    _Stat(
-                      label: 'Posts',
-                      value: stats.postCount,
-                    ),
+                    _Stat(label: 'Posts',     value: stats.postCount),
                     _Stat(
                       label: 'Followers',
-                      // Use local delta for instant update
                       value: displayedFollowers.clamp(0, 999999999),
                     ),
-                    _Stat(
-                      label: 'Following',
-                      value: stats.followingCount,
-                    ),
+                    _Stat(label: 'Following', value: stats.followingCount),
                   ],
                 ),
               ),
@@ -148,15 +139,11 @@ class ProfileHeader extends ConsumerWidget {
   }
 }
 
-// ── Follow button — animated, reads local state ───────────────
 class _FollowButton extends StatelessWidget {
   final bool         isFollowing;
   final VoidCallback? onTap;
 
-  const _FollowButton({
-    required this.isFollowing,
-    this.onTap,
-  });
+  const _FollowButton({required this.isFollowing, this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -165,8 +152,7 @@ class _FollowButton extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         curve: Curves.easeOut,
-        padding: const EdgeInsets.symmetric(
-            horizontal: 24, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
         decoration: BoxDecoration(
           gradient: isFollowing ? null : const LinearGradient(
             colors: [Color(0xFF6D28D9), Color(0xFFDB2777)],
@@ -174,9 +160,7 @@ class _FollowButton extends StatelessWidget {
             end:   Alignment.centerRight,
           ),
           border: isFollowing
-              ? Border.all(
-                  color: AppColors.outlineVariant,
-                  width: 1.5)
+              ? Border.all(color: AppColors.outlineVariant, width: 1.5)
               : null,
           borderRadius: BorderRadius.circular(100),
         ),
@@ -186,9 +170,7 @@ class _FollowButton extends StatelessWidget {
             isFollowing ? 'Following' : 'Follow',
             key: ValueKey(isFollowing),
             style: TextStyle(
-              color: isFollowing
-                  ? AppColors.onSurfaceDark
-                  : Colors.white,
+              color: isFollowing ? AppColors.onSurfaceDark : Colors.white,
               fontWeight: FontWeight.w700,
               fontSize: 14,
             ),
@@ -215,8 +197,7 @@ class _OutlineButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(
-            horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
           border: Border.all(
             color: isDestructive
@@ -257,8 +238,8 @@ class _Stat extends StatelessWidget {
               .copyWith(color: AppColors.onSurfaceDark)),
       const SizedBox(height: 4),
       Text(label.toUpperCase(),
-          style: AppTextStyles.statLabel.copyWith(
-              color: AppColors.onSurfaceVariantDark)),
+          style: AppTextStyles.statLabel
+              .copyWith(color: AppColors.onSurfaceVariantDark)),
     ]);
   }
 }
