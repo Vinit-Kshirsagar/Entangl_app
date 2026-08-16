@@ -13,14 +13,28 @@ UserModel _user(String status) => UserModel(
 
 void main() {
   group('resolveLandingRoute', () {
-    test('null profile goes home (legacy)', () {
-      expect(resolveLandingRoute(profile: null), AppRoutes.home);
+    test('auth failure forces login', () {
+      expect(
+        resolveLandingRoute(failure: LandingFailure.auth),
+        AppRoutes.login,
+      );
     });
 
-    test('fetch failure goes home (current policy)', () {
+    test('network failure keeps session path at home', () {
       expect(
-        resolveLandingRoute(profileFetchFailed: true),
+        resolveLandingRoute(failure: LandingFailure.network),
         AppRoutes.home,
+      );
+    });
+
+    test('missing profile goes to approval (incomplete account)', () {
+      expect(
+        resolveLandingRoute(failure: LandingFailure.missingProfile),
+        AppRoutes.approvalStatus,
+      );
+      expect(
+        resolveLandingRoute(profile: null),
+        AppRoutes.approvalStatus,
       );
     });
 
@@ -56,6 +70,14 @@ void main() {
         resolveLandingRoute(profile: _user('approved_email_changed')),
         AppRoutes.home,
       );
+    });
+  });
+
+  group('AppRoutes public locations', () {
+    test('classifies public vs protected', () {
+      expect(AppRoutes.isPublicAuthLocation(AppRoutes.login), isTrue);
+      expect(AppRoutes.isPublicAuthLocation(AppRoutes.home), isFalse);
+      expect(AppRoutes.isAuthFunnelLocation(AppRoutes.approvalStatus), isTrue);
     });
   });
 }

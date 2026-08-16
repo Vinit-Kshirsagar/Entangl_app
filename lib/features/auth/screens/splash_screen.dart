@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
+import '../../../core/utils/session_lifecycle.dart';
 import '../../../data/services/push_notification_service.dart';
 import '../../../shared/widgets/mascot_widgets.dart';
 import '../utils/auth_landing.dart';
@@ -26,16 +26,20 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
 
   Future<void> _navigate() async {
     if (!mounted) return;
-    final hasSession = Supabase.instance.client.auth.currentSession != null;
-    if (hasSession) {
-      // Cold-start with existing session: refresh FCM token in device_tokens.
-      await PushNotificationService.instance.syncWithPreferences();
-    }
+
+    // Refresh near-expiry tokens before deciding destination.
+    final sessionOk = await SessionLifecycle.ensureFreshSession();
     if (!mounted) return;
-    if (!hasSession) {
+
+    if (!sessionOk) {
       context.go(AppRoutes.login);
       return;
     }
+
+    // Cold-start with session: keep device_tokens fresh (Android).
+    await PushNotificationService.instance.syncWithPreferences();
+    if (!mounted) return;
+
     final dest = await landingRouteAfterAuth();
     if (mounted) context.go(dest);
   }

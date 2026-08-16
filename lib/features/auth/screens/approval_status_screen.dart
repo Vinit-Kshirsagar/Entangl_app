@@ -33,7 +33,13 @@ class _ApprovalStatusScreenState
       final profile =
           await ref.read(usersRepositoryProvider).getOwnProfile();
       if (profile == null) {
-        if (mounted) context.go(AppRoutes.login);
+        // Session without profile row — stay here (incomplete account).
+        if (mounted) {
+          setState(() {
+            _status = 'pending';
+            _loading = false;
+          });
+        }
         return;
       }
       if (profile.isApproved) {
@@ -47,7 +53,13 @@ class _ApprovalStatusScreenState
         });
       }
     } catch (_) {
-      if (mounted) context.go(AppRoutes.login);
+      // Network blip: stay on screen so user can retry; logout still available.
+      if (mounted) {
+        setState(() {
+          _status = 'pending';
+          _loading = false;
+        });
+      }
     }
   }
 
