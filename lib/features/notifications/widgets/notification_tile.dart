@@ -147,6 +147,8 @@ class NotificationTile extends StatelessWidget {
         return const Icon(Icons.chat_bubble_rounded, color: AppColors.notifComment, size: 12);
       case NotificationType.reply:
         return const Icon(Icons.reply_rounded, color: AppColors.notifReply, size: 12);
+      case NotificationType.newPost:
+        return const Icon(Icons.auto_awesome_rounded, color: AppColors.notifComment, size: 12);
     }
   }
 
@@ -163,6 +165,8 @@ class NotificationTile extends StatelessWidget {
         return '$name commented on your post';
       case NotificationType.reply:
         return '$name replied to your comment';
+      case NotificationType.newPost:
+        return '$name posted something new';
     }
   }
 }
