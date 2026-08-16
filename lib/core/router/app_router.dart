@@ -12,6 +12,7 @@ import '../../features/auth/screens/splash_screen.dart';
 import '../../features/feed/screens/home_screen.dart';
 import '../../features/notifications/screens/notifications_screen.dart';
 import '../../features/post/screens/create_post_screen.dart';
+import '../../features/post/screens/post_detail_screen.dart';
 import '../../features/profile/screens/edit_profile_screen.dart';
 import '../../features/profile/screens/profile_screen.dart';
 import '../../features/settings/screens/privacy_settings_screen.dart';
@@ -33,6 +34,26 @@ class AppRoutes {
   static const settings = '/settings';
   static const privacy = '/settings/privacy';
   static const adminRequests = '/admin/requests';
+  static const postDetail = '/post/:postId';
+
+  /// Build `/post/{id}` with optional comment deep-link query params.
+  static String postLocation(
+    String postId, {
+    String? commentId,
+    bool openComments = false,
+  }) {
+    final params = <String, String>{};
+    if (commentId != null && commentId.isNotEmpty) {
+      params['commentId'] = commentId;
+    }
+    if (openComments) params['openComments'] = '1';
+    if (params.isEmpty) return '/post/$postId';
+    final q = params.entries
+        .map((e) =>
+            '${Uri.encodeQueryComponent(e.key)}=${Uri.encodeQueryComponent(e.value)}')
+        .join('&');
+    return '/post/$postId?$q';
+  }
 
   /// Pages allowed without a session.
   static bool isPublicAuthLocation(String loc) =>
@@ -99,6 +120,20 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.createPost,
         builder: (_, __) => const CreatePostScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.postDetail,
+        builder: (_, state) {
+          final postId = state.pathParameters['postId'] ?? '';
+          final commentId = state.uri.queryParameters['commentId'];
+          final openComments =
+              state.uri.queryParameters['openComments'] == '1';
+          return PostDetailScreen(
+            postId: postId,
+            commentId: commentId,
+            openComments: openComments,
+          );
+        },
       ),
       GoRoute(
         path: AppRoutes.notifications,

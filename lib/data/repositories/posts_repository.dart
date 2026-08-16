@@ -107,6 +107,52 @@ class PostsRepository {
     }
   }
 
+  static const _postSelect = '''
+            id,
+            user_id,
+            content,
+            image_url,
+            created_at,
+            profiles (
+              id,
+              username,
+              full_name,
+              avatar_url
+            ),
+            likes (
+              id,
+              user_id
+            ),
+            dislikes (
+              id,
+              user_id
+            ),
+            comments (
+              id
+            )
+          ''';
+
+  /// Single post for notification deep links. Returns null if missing.
+  Future<PostModel?> getPostById(String postId) async {
+    try {
+      final uid = SupabaseService.currentUserId;
+      final row = await _db
+          .from('posts')
+          .select(_postSelect)
+          .eq('id', postId)
+          .maybeSingle();
+      if (row == null) return null;
+      return PostModel.fromJson(
+        Map<String, dynamic>.from(row as Map),
+        currentUserId: uid,
+      );
+    } catch (e, st) {
+      debugPrint('ENTANGL ERROR getPostById: $e');
+      debugPrint('ENTANGL STACK: $st');
+      rethrow;
+    }
+  }
+
   Future<void> createPost({
     required String content,
     File? imageFile,
