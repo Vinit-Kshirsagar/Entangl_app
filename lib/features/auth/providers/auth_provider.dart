@@ -51,16 +51,20 @@ class AuthNotifier extends AsyncNotifier<void> {
 
   Future<void> signInWithGoogle() async {
     state = const AsyncLoading();
-    state = await AsyncValue.guard(() async {
-      try {
-        await ref.read(authRepositoryProvider).signInWithGoogle();
-      } on GoogleSignInCancelled {
-        return;
-      }
-      try {
-        await PushNotificationService.instance.syncWithPreferences();
-      } catch (_) {}
-    });
+    try {
+      await ref.read(authRepositoryProvider).signInWithGoogle();
+    } on GoogleSignInCancelled {
+      // User closed the account picker — not an error snackbar case.
+      state = const AsyncData(null);
+      return;
+    } catch (e, st) {
+      state = AsyncError(e, st);
+      return;
+    }
+    try {
+      await PushNotificationService.instance.syncWithPreferences();
+    } catch (_) {}
+    state = const AsyncData(null);
   }
 
   Future<void> signOut() async {

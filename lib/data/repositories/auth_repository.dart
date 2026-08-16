@@ -54,13 +54,22 @@ class AuthRepository {
       );
     } on PlatformException catch (e) {
       final code = e.code.toUpperCase();
-      if (code == 'CANCELED' || code == 'CANCELLED') {
+      // Plugin versions differ on spelling / message wording.
+      if (code == 'CANCELED' ||
+          code == 'CANCELLED' ||
+          code.contains('CANCEL') ||
+          (e.message?.toLowerCase().contains('cancel') ?? false)) {
         throw GoogleSignInCancelled();
       }
       rethrow;
     }
 
-    await _client.auth.getSessionFromUrl(Uri.parse(callback));
+    final trimmed = callback.trim();
+    if (trimmed.isEmpty) {
+      throw Exception('Google sign-in could not complete. Please try again.');
+    }
+
+    await _client.auth.getSessionFromUrl(Uri.parse(trimmed));
   }
 
   Future<void> signOut() => _client.auth.signOut();
