@@ -15,7 +15,8 @@
 }
 ```
 
-Edge `send-push` should populate these keys on the FCM **data** map (in addition to notification title/body).
+Edge `send-push` should populate these keys on the FCM **data** map (in addition to notification title/body).  
+Repo source (`supabase/functions/send-push`) sends them after Phase 5 — **deploy** that function if not already updated.
 
 ## Client map
 
