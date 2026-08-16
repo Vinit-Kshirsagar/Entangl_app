@@ -8,6 +8,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/theme/entangl_colors.dart';
 import '../../../core/utils/auth_errors.dart';
+import '../../../core/utils/auth_validators.dart';
 import '../../../shared/widgets/gradient_button.dart';
 import '../../../shared/widgets/mascot_widgets.dart';
 import '../../../data/services/supabase_service.dart';
@@ -61,9 +62,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     if (!mounted) return;
     final authState = ref.read(authNotifierProvider);
     if (authState is AsyncError) {
-      _showError(humaniseAuthError(authState.error));
+      final msg = humaniseAuthError(authState.error);
+      if (msg.isNotEmpty) _showError(msg);
       return;
     }
+    // Cancel leaves AsyncData with no session — stay on login quietly.
     if (SupabaseService.currentSession != null) {
       await _routeIfSignedIn();
     }
@@ -80,14 +83,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     if (!mounted) return;
     final authState = ref.read(authNotifierProvider);
     if (authState is AsyncError) {
-      _showError(humaniseAuthError(authState.error));
-    } else {
+      final msg = humaniseAuthError(authState.error);
+      if (msg.isNotEmpty) _showError(msg);
+    } else if (SupabaseService.currentSession != null) {
       final dest = await landingRouteAfterAuth();
       if (mounted) context.go(dest);
     }
   }
 
   void _showError(String message) {
+    if (message.trim().isEmpty) return;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(
@@ -220,12 +225,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             controller: _email,
                             hint: 'you@example.com',
                             type: TextInputType.emailAddress,
-                            validator: (v) {
-                              if (v == null || v.trim().isEmpty) {
-                                  return 'Email is required';
-                              }
-                              return null;
-                            },
+                            validator: AuthValidators.email,
                           ),
                           const SizedBox(height: 20),
                           AuthField(
@@ -235,12 +235,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             obscure: _obscure,
                             onToggleObscure: () =>
                                 setState(() => _obscure = !_obscure),
-                            validator: (v) {
-                              if (v == null || v.isEmpty) {
-                                return 'Password is required';
-                              }
-                              return null;
-                            },
+                            validator: (v) =>
+                                AuthValidators.password(v, minLength: 1),
                           ),
                           const SizedBox(height: 32),
                           GradientButton(

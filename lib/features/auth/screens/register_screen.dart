@@ -7,6 +7,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/theme/entangl_colors.dart';
 import '../../../core/utils/auth_errors.dart';
+import '../../../core/utils/auth_validators.dart';
 import '../../../shared/widgets/gradient_button.dart';
 import '../../../shared/widgets/mascot_widgets.dart';
 import '../../../shared/widgets/doodle_widget.dart';
@@ -77,7 +78,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     final authState = ref.read(authNotifierProvider);
     if (authState is AsyncError) {
       setState(() => _frogExpression = FrogExpression.confused);
-      _showError(humaniseAuthError(authState.error));
+      final msg = humaniseAuthError(authState.error);
+      if (msg.isNotEmpty) _showError(msg);
     } else {
       final dest = await landingRouteAfterAuth();
       if (mounted) context.go(dest);
@@ -85,6 +87,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   }
 
   void _showError(String message) {
+    if (message.trim().isEmpty) return;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(
@@ -198,26 +201,14 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                             label: 'Full Name',
                             controller: _name,
                             hint: 'Your name',
-                            validator: (v) =>
-                                (v?.trim().isEmpty ?? true) ? 'Name is required' : null,
+                            validator: AuthValidators.fullName,
                           ),
                           const SizedBox(height: 20),
                           AuthField(
                             label: 'Username',
                             controller: _username,
                             hint: 'e.g. janedoe',
-                            validator: (v) {
-                              if (v == null || v.trim().isEmpty) {
-                                return 'Username is required';
-                              }
-                              if (v.trim().length < 3) {
-                                return 'Username must be at least 3 characters';
-                              }
-                              if (!RegExp(r'^[a-zA-Z0-9_]+$').hasMatch(v.trim())) {
-                                return 'Only letters, numbers and underscores';
-                              }
-                              return null;
-                            },
+                            validator: AuthValidators.username,
                           ),
                           const SizedBox(height: 20),
                           AuthField(
@@ -225,15 +216,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                             controller: _email,
                             hint: 'you@example.com',
                             type: TextInputType.emailAddress,
-                            validator: (v) {
-                              if (v == null || v.trim().isEmpty) {
-                                return 'Email is required';
-                              }
-                              if (!v.contains('@')) {
-                                return 'Enter a valid email';
-                              }
-                              return null;
-                            },
+                            validator: AuthValidators.email,
                           ),
                           const SizedBox(height: 20),
                           AuthField(
@@ -243,15 +226,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                             obscure: _obscure,
                             onToggleObscure: () =>
                                 setState(() => _obscure = !_obscure),
-                            validator: (v) {
-                              if (v == null || v.isEmpty) {
-                                return 'Password is required';
-                              }
-                              if (v.length < 6) {
-                                return 'At least 6 characters required';
-                              }
-                              return null;
-                            },
+                            validator: AuthValidators.password,
                           ),
                           const SizedBox(height: 32),
                           GradientButton(
