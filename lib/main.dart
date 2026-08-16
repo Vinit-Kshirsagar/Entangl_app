@@ -11,6 +11,7 @@ import 'shared/providers/theme_provider.dart';
 import 'core/utils/app_lifecycle.dart';
 import 'core/secrets.dart';
 import 'data/services/push_notification_service.dart';
+import 'features/notifications/utils/notification_router.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -39,13 +40,30 @@ Future<void> main() async {
   );
 }
 
-class EntanglApp extends ConsumerWidget {
+class EntanglApp extends ConsumerStatefulWidget {
   const EntanglApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<EntanglApp> createState() => _EntanglAppState();
+}
+
+class _EntanglAppState extends ConsumerState<EntanglApp> {
+  var _openHandlerAttached = false;
+
+  @override
+  Widget build(BuildContext context) {
     final router = ref.watch(routerProvider);
     final themeMode = ref.watch(themeModeProvider);
+
+    if (!_openHandlerAttached) {
+      _openHandlerAttached = true;
+      // After first frame so GoRouter is ready for cold-start taps.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        PushNotificationService.instance.attachOpenHandler((payload) {
+          NotificationRouter.navigate(router, payload);
+        });
+      });
+    }
 
     return MaterialApp.router(
       title: 'Entangl',
@@ -54,9 +72,6 @@ class EntanglApp extends ConsumerWidget {
       darkTheme: AppTheme.dark,
       themeMode: themeMode,
       routerConfig: router,
-
-      // Wrap the entire navigator in the lifecycle wrapper so
-      // the offline banner and session refresh cover all screens.
       builder: (context, child) => AppLifecycleWrapper(
         child: child ?? const SizedBox.shrink(),
       ),

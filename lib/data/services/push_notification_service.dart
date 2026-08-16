@@ -6,14 +6,17 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../features/notifications/models/notification_route_payload.dart';
 import 'supabase_service.dart';
+
+typedef NotificationOpenHandler = void Function(NotificationRoutePayload payload);
 
 /// Registers this device with FCM and stores the token in Supabase
 /// `device_tokens` (and optionally `profiles.fcm_token`).
 ///
 /// Android-first: iOS / web / desktop no-op until APNs is configured.
 /// Supabase remains the source of truth for notification *content*;
-/// this service only enables FCM *delivery*.
+/// this service only enables FCM *delivery* + open events.
 class PushNotificationService {
   PushNotificationService._();
   static final PushNotificationService instance = PushNotificationService._();
@@ -28,8 +31,13 @@ class PushNotificationService {
 
   StreamSubscription<String>? _tokenRefreshSub;
   StreamSubscription<RemoteMessage>? _foregroundSub;
+  StreamSubscription<RemoteMessage>? _openedSub;
   bool _initialized = false;
+  bool _openHandlersBound = false;
   String? _currentToken;
+
+  NotificationOpenHandler? _onOpen;
+  NotificationRoutePayload? _pendingOpen;
 
   /// Whether this platform should register for FCM device tokens.
   bool get isSupported {
@@ -38,6 +46,17 @@ class PushNotificationService {
   }
 
   String? get currentToken => _currentToken;
+
+  /// Wire navigation after [GoRouter] exists. Flushes any cold-start payload.
+  void attachOpenHandler(NotificationOpenHandler handler) {
+    _onOpen = handler;
+    final pending = _pendingOpen;
+    if (pending != null) {
+      _pendingOpen = null;
+      // Defer so the first frame / router can settle.
+      scheduleMicrotask(() => handler(pending));
+    }
+  }
 
   Future<void> initialize() async {
     if (_initialized) return;
@@ -50,7 +69,6 @@ class PushNotificationService {
 
     await _initLocalNotifications();
 
-    // Android 13+ runtime permission; also covers FCM notification permission.
     final settings = await _messaging.requestPermission(
       alert: true,
       badge: true,
@@ -77,14 +95,38 @@ class PushNotificationService {
     _foregroundSub =
         FirebaseMessaging.onMessage.listen(_showForegroundNotification);
 
-    // If user already has a session and push is on, register now.
+    await bindOpenHandlers();
+
     if (SupabaseService.currentUserId != null &&
         await _isPushEnabledInPrefs()) {
       await registerToken();
     }
   }
 
-  /// Call after login / when push is turned ON in Settings.
+  /// Background / terminated / local-notification open paths.
+  Future<void> bindOpenHandlers() async {
+    if (!isSupported || _openHandlersBound) return;
+    _openHandlersBound = true;
+
+    _openedSub?.cancel();
+    _openedSub = FirebaseMessaging.onMessageOpenedApp.listen((message) {
+      _emitOpen(NotificationRoutePayload.fromRemoteData(
+        Map<String, dynamic>.from(message.data),
+      ));
+    });
+
+    try {
+      final initial = await _messaging.getInitialMessage();
+      if (initial != null) {
+        _emitOpen(NotificationRoutePayload.fromRemoteData(
+          Map<String, dynamic>.from(initial.data),
+        ));
+      }
+    } catch (e) {
+      _log('getInitialMessage failed: $e');
+    }
+  }
+
   Future<void> registerToken() async {
     if (!isSupported) {
       _log('registerToken skipped (unsupported platform)');
@@ -116,14 +158,14 @@ class PushNotificationService {
 
       _currentToken = token;
       await _upsertToken(token);
-      _log('token registered (${token.substring(0, token.length.clamp(0, 12))}…)');
+      _log(
+          'token registered (${token.substring(0, token.length.clamp(0, 12))}…)');
     } catch (e, st) {
       _log('registerToken error: $e');
       debugPrintStack(stackTrace: st);
     }
   }
 
-  /// Call when push is turned OFF or before sign-out.
   Future<void> unregisterToken() async {
     if (!isSupported) return;
 
@@ -140,7 +182,6 @@ class PushNotificationService {
         _log('token row deleted');
       }
 
-      // Clear backup column if it matches this device token.
       if (userId != null && token != null) {
         try {
           final row = await SupabaseService.client
@@ -158,7 +199,6 @@ class PushNotificationService {
         }
       }
 
-      // Best-effort: drop FCM registration on this install.
       try {
         await _messaging.deleteToken();
       } catch (e) {
@@ -171,7 +211,6 @@ class PushNotificationService {
     }
   }
 
-  /// Re-sync token with prefs (e.g. after login or app resume).
   Future<void> syncWithPreferences() async {
     if (!isSupported) return;
     if (SupabaseService.currentUserId == null) return;
@@ -197,7 +236,6 @@ class PushNotificationService {
       onConflict: 'token',
     );
 
-    // Backup column used by older send paths / activity-push.
     try {
       await SupabaseService.client
           .from('profiles')
@@ -215,7 +253,10 @@ class PushNotificationService {
   Future<void> _initLocalNotifications() async {
     const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
     const initSettings = InitializationSettings(android: androidInit);
-    await _local.initialize(settings: initSettings);
+    await _local.initialize(
+      settings: initSettings,
+      onDidReceiveNotificationResponse: _onLocalNotificationResponse,
+    );
 
     const channel = AndroidNotificationChannel(
       _androidChannelId,
@@ -230,11 +271,20 @@ class PushNotificationService {
         ?.createNotificationChannel(channel);
   }
 
+  void _onLocalNotificationResponse(NotificationResponse response) {
+    final payload = NotificationRoutePayload.fromPayloadString(response.payload);
+    _emitOpen(payload);
+  }
+
   Future<void> _showForegroundNotification(RemoteMessage message) async {
     final notification = message.notification;
     final title = notification?.title ?? message.data['title'] as String?;
     final body = notification?.body ?? message.data['body'] as String?;
     if (title == null && body == null) return;
+
+    final routePayload = NotificationRoutePayload.fromRemoteData(
+      Map<String, dynamic>.from(message.data),
+    );
 
     await _local.show(
       id: notification?.hashCode ?? message.hashCode,
@@ -250,9 +300,18 @@ class PushNotificationService {
           icon: '@mipmap/ic_launcher',
         ),
       ),
-      payload: message.data['route'] as String? ??
-          message.data['post_id'] as String?,
+      payload: routePayload.toPayloadString(),
     );
+  }
+
+  void _emitOpen(NotificationRoutePayload payload) {
+    _log('open notification type=${payload.type} post=${payload.postId}');
+    final handler = _onOpen;
+    if (handler == null) {
+      _pendingOpen = payload;
+      return;
+    }
+    handler(payload);
   }
 
   void _log(String msg) {
@@ -262,13 +321,11 @@ class PushNotificationService {
   Future<void> dispose() async {
     await _tokenRefreshSub?.cancel();
     await _foregroundSub?.cancel();
+    await _openedSub?.cancel();
   }
 }
 
-/// Must be a top-level function for background isolates.
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  // Firebase is usually already available in the background isolate after
-  // the plugin boots it; keep handler light. Heavy work stays on the server.
   debugPrint('[FCM] background message: ${message.messageId}');
 }

@@ -6,7 +6,9 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../shared/widgets/connect_app_bar.dart';
 import '../../../shared/widgets/mascot_widgets.dart';
+import '../models/notification_route_payload.dart';
 import '../providers/notifications_provider.dart';
+import '../utils/notification_router.dart';
 import '../widgets/notification_tile.dart';
 
 class NotificationsScreen extends ConsumerWidget {
@@ -80,10 +82,12 @@ class NotificationsScreen extends ConsumerWidget {
                 itemBuilder: (_, i) => NotificationTile(
                   notification: notifs[i],
                   onTap: () {
-                    notifier.markRead(notifs[i].id);
-                    if (notifs[i].actorId.isNotEmpty) {
-                      context.push('/profile/${notifs[i].actorId}');
-                    }
+                    final n = notifs[i];
+                    notifier.markRead(n.id);
+                    final payload =
+                        NotificationRoutePayload.fromNotification(n);
+                    final loc = NotificationRouter.locationFor(payload);
+                    context.push(loc);
                   },
                   onDismiss: () => notifier.remove(notifs[i].id),
                 )
