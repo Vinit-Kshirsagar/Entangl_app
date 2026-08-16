@@ -7,6 +7,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../features/notifications/models/notification_route_payload.dart';
+import 'device_token_lifecycle.dart';
 import 'supabase_service.dart';
 
 typedef NotificationOpenHandler = void Function(NotificationRoutePayload payload);
@@ -85,9 +86,10 @@ class PushNotificationService {
     _tokenRefreshSub?.cancel();
     _tokenRefreshSub = _messaging.onTokenRefresh.listen((token) async {
       _log('token refreshed');
-      _currentToken = token;
       if (await _isPushEnabledInPrefs()) {
-        await _upsertToken(token);
+        await _replaceAndUpsertToken(token);
+      } else {
+        _currentToken = token;
       }
     });
 
@@ -156,14 +158,34 @@ class PushNotificationService {
         return;
       }
 
-      _currentToken = token;
-      await _upsertToken(token);
+      await _replaceAndUpsertToken(token);
       _log(
           'token registered (${token.substring(0, token.length.clamp(0, 12))}…)');
     } catch (e, st) {
       _log('registerToken error: $e');
       debugPrintStack(stackTrace: st);
     }
+  }
+
+  /// Upsert new token; remove previous install token if it rotated.
+  Future<void> _replaceAndUpsertToken(String token) async {
+    final previous = _currentToken;
+    if (DeviceTokenLifecycle.shouldReplacePrevious(
+      previousToken: previous,
+      newToken: token,
+    )) {
+      try {
+        await SupabaseService.client
+            .from('device_tokens')
+            .delete()
+            .eq('token', previous!);
+        _log('removed previous token row');
+      } catch (e) {
+        _log('previous token delete skipped: $e');
+      }
+    }
+    _currentToken = token;
+    await _upsertToken(token);
   }
 
   Future<void> unregisterToken() async {
