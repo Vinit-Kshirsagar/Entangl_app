@@ -3,11 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../data/models/post_model.dart';
+import '../../../core/theme/app_text_styles.dart';
 import '../../../features/stories/widgets/story_circles_row.dart';
-import '../../../shared/widgets/entangl_nav_bar.dart';
-import '../../../shared/widgets/gradient_text.dart';
+import '../../../shared/widgets/connect_nav_bar.dart';
+import '../../../shared/widgets/gradient_button.dart';
+import '../../../shared/widgets/mascot_widgets.dart';
 import '../../../shared/widgets/post_card.dart';
+import '../../../shared/widgets/tactile_connector.dart';
 import '../../notifications/providers/notifications_provider.dart';
 import '../../search/screens/search_screen.dart';
 import '../providers/feed_provider.dart';
@@ -18,15 +20,22 @@ class HomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
-      backgroundColor: AppColors.backgroundDark,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       extendBody: true,
       body: const _HomeBody(),
-      bottomNavigationBar: EntanglNavBar(
+      bottomNavigationBar: ConnectNavBar(
         currentIndex: 0,
         onTap: (i) {
           switch (i) {
-            case 1: context.push(AppRoutes.createPost); break;
-            case 2: context.push(AppRoutes.profile); break;
+            case 1:
+              context.push(AppRoutes.createPost);
+              break;
+            case 2:
+              context.push(AppRoutes.notifications);
+              break;
+            case 3:
+              context.push(AppRoutes.profile);
+              break;
           }
         },
       ),
@@ -65,203 +74,195 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
 
   @override
   Widget build(BuildContext context) {
-    final top       = MediaQuery.of(context).padding.top;
+    final top = MediaQuery.of(context).padding.top;
     final feedAsync = ref.watch(feedProvider);
 
-    // Header height: status bar + name row (52) + stories (96) + divider (1)
-    final headerHeight = top + 52.0 + 96.0 + 1.0;
-
-    return CustomScrollView(
-      controller: _scrollCtrl,
-      physics: const BouncingScrollPhysics(
-          parent: AlwaysScrollableScrollPhysics()),
-      slivers: [
-        // Floating header — scrolls away, snaps back on scroll up
-        SliverAppBar(
-          backgroundColor: AppColors.backgroundDark,
-          floating:       true,
-          snap:           true,
-          pinned:         false,
-          elevation:      0,
-          toolbarHeight:  0,
-          expandedHeight: headerHeight,
-          flexibleSpace: FlexibleSpaceBar(
-            background: ClipRect(  // prevents any pixel overflow
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Status bar spacer
-                  SizedBox(height: top + 10),
-                  // Top bar: Entangl + search + bell
-                  Padding(
-                    padding: const EdgeInsets.only(
-                        left: 20, right: 8, bottom: 4),
-                    child: Row(children: [
-                      GradientText(
-                        'Entangl',
-                        style: const TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -0.5,
-                        ),
+    return RefreshIndicator(
+      color: AppColors.primary,
+      backgroundColor: AppColors.surfaceLowest,
+      displacement: top + 72,
+      onRefresh: () async => ref.refresh(feedProvider),
+      child: CustomScrollView(
+        controller: _scrollCtrl,
+        physics: const BouncingScrollPhysics(
+          parent: AlwaysScrollableScrollPhysics(),
+        ),
+        slivers: [
+          SliverToBoxAdapter(
+            child: Container(
+              padding: EdgeInsets.only(top: top),
+              decoration: BoxDecoration(
+                color: Theme.of(context).scaffoldBackgroundColor,
+                border: Border(
+                  bottom: BorderSide(
+                    color: Theme.of(context).colorScheme.outlineVariant,
+                    width: 1.5,
+                  ),
+                ),
+              ),
+              child: SizedBox(
+                height: 64,
+                child: Row(
+                  children: [
+                    IconButton(
+                      onPressed: () => context.push(AppRoutes.settings),
+                      icon: const Icon(
+                        Icons.menu_rounded,
+                        color: AppColors.onSurfaceVariant,
                       ),
-                      const Spacer(),
-                      _SearchButton(),
-                      _NotifBell(),
-                    ]),
-                  ),
-                  // Stories row — fixed height 96
-                  const SizedBox(
-                    height: 96,
-                    child: StoryCirclesRow(),
-                  ),
-                  // Divider
-                  Container(
-                    height: 1,
-                    margin: const EdgeInsets.symmetric(horizontal: 16),
-                    color: AppColors.outlineVariant.withOpacity(0.08),
-                  ),
-                ],
+                    ),
+                    Expanded(
+                      child: Text(
+                        'entangl',
+                        textAlign: TextAlign.center,
+                        style: AppTextStyles.brandName,
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => showSearch(
+                        context: context,
+                        delegate: UserSearchDelegate(ref),
+                      ),
+                      icon: const Icon(
+                        Icons.search_rounded,
+                        color: AppColors.onSurfaceVariant,
+                      ),
+                    ),
+                    _NotifBell(),
+                  ],
+                ),
               ),
             ),
           ),
-        ),
-
-        // Feed content
-        feedAsync.when(
-          loading: () => const SliverFillRemaining(
-            child: Center(
-              child: CircularProgressIndicator(
-                  color: AppColors.primary, strokeWidth: 2),
+          const SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.only(top: 20, bottom: 8),
+              child: SizedBox(height: 104, child: StoryCirclesRow()),
             ),
           ),
-          error: (e, _) => SliverFillRemaining(
-            child: Center(
-              child: Column(mainAxisSize: MainAxisSize.min, children: [
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: AppColors.errorContainer.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: const Icon(Icons.wifi_off_rounded,
-                      color: AppColors.error, size: 32),
-                ),
-                const SizedBox(height: 16),
-                GestureDetector(
-                  onTap: () => ref.refresh(feedProvider),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 24, vertical: 10),
-                    decoration: BoxDecoration(
-                      gradient: AppColors.primaryGradient,
-                      borderRadius: BorderRadius.circular(100),
+          feedAsync.when(
+            loading: () => const SliverFillRemaining(
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    GhostMascot(
+                      expression: GhostExpression.floating,
+                      size: 88,
                     ),
-                    child: const Text('Retry',
-                        style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600)),
-                  ),
+                    SizedBox(height: 16),
+                    Text('Summoning posts...'),
+                  ],
                 ),
-              ]),
+              ),
             ),
-          ),
-          data: (posts) => posts.isEmpty
-              ? SliverFillRemaining(
-                  child: Center(
-                    child: Column(mainAxisSize: MainAxisSize.min,
-                        children: [
-                      Container(
-                        width: 72, height: 72,
-                        decoration: BoxDecoration(
-                          color: AppColors.surfaceContainerHigh,
-                          shape: BoxShape.circle,
+            error: (e, _) => SliverFillRemaining(
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 32),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const GhostMascot(
+                        expression: GhostExpression.sad,
+                        size: 88,
+                      ),
+                      const SizedBox(height: 16),
+                      Text('Couldn’t load the feed', style: AppTextStyles.title2),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Check your network, then try again.',
+                        textAlign: TextAlign.center,
+                        style: AppTextStyles.bodyMedium.copyWith(
+                          color: AppColors.onSurfaceVariant,
                         ),
-                        child: const Icon(Icons.auto_awesome_rounded,
-                            color: AppColors.primary, size: 32),
                       ),
                       const SizedBox(height: 20),
-                      const Text('Nothing here yet',
-                          style: TextStyle(
-                            color: AppColors.onSurfaceDark,
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700,
-                          )),
-                      const SizedBox(height: 8),
-                      Text('Be the first to post something',
-                          style: TextStyle(
-                            color: AppColors.onSurfaceVariantDark
-                                .withOpacity(0.5),
-                            fontSize: 14,
-                          )),
-                      const SizedBox(height: 28),
-                      GestureDetector(
-                        onTap: () =>
-                            context.push(AppRoutes.createPost),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 28, vertical: 12),
-                          decoration: BoxDecoration(
-                            gradient: AppColors.primaryGradient,
-                            borderRadius:
-                                BorderRadius.circular(100),
-                          ),
-                          child: const Text('Create post',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w600,
-                                fontSize: 15,
-                              )),
+                      SizedBox(
+                        width: 140,
+                        child: GradientButton(
+                          label: 'Retry',
+                          onTap: () => ref.refresh(feedProvider),
                         ),
                       ),
-                    ]),
-                  ),
-                )
-              : SliverPadding(
-                  padding:
-                      const EdgeInsets.only(top: 4, bottom: 120),
-                  sliver: SliverList(
-                    delegate: SliverChildBuilderDelegate(
-                      (_, i) {
-                        if (i == posts.length) {
-                          return const Padding(
-                            padding: EdgeInsets.symmetric(
-                                vertical: 20),
-                            child: Center(
-                              child: SizedBox(
-                                width: 20, height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 1.5,
-                                  color: AppColors.primary,
-                                ),
-                              ),
-                            ),
-                          );
-                        }
-                        return PostCard(
-                            post: posts[i] as PostModel);
-                      },
-                      childCount: posts.length + 1,
-                    ),
+                    ],
                   ),
                 ),
-        ),
-      ],
-    );
-  }
-}
-
-class _SearchButton extends ConsumerWidget {
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return IconButton(
-      onPressed: () => showSearch(
-        context: context,
-        delegate: UserSearchDelegate(ref),
+              ),
+            ),
+            data: (posts) => posts.isEmpty
+                ? SliverFillRemaining(
+                    child: Center(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 32),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const FrogMascot(
+                              expression: FrogExpression.confused,
+                              size: 88,
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'Nothing tangled yet',
+                              style: AppTextStyles.title2,
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Be the first to post a scrap and start the thread.',
+                              textAlign: TextAlign.center,
+                              style: AppTextStyles.bodyMedium.copyWith(
+                                color: AppColors.onSurfaceVariant,
+                              ),
+                            ),
+                            const SizedBox(height: 24),
+                            SizedBox(
+                              width: 200,
+                              child: GradientButton(
+                                label: 'New Entanglement',
+                                onTap: () =>
+                                    context.push(AppRoutes.createPost),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  )
+                : SliverPadding(
+                    padding: const EdgeInsets.only(top: 12, bottom: 140),
+                    sliver: SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        (_, i) {
+                          if (i == posts.length) {
+                            return const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 20),
+                              child: Center(
+                                child: SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 1.5,
+                                    color: AppColors.primary,
+                                  ),
+                                ),
+                              ),
+                            );
+                          }
+                          return Column(
+                            children: [
+                              if (i > 0) const TactileConnector(height: 28),
+                              PostCard(post: posts[i]),
+                            ],
+                          );
+                        },
+                        childCount: posts.length + 1,
+                      ),
+                    ),
+                  ),
+          ),
+        ],
       ),
-      icon: const Icon(Icons.search_rounded,
-          color: AppColors.onSurfaceVariantDark, size: 22),
     );
   }
 }
@@ -269,31 +270,30 @@ class _SearchButton extends ConsumerWidget {
 class _NotifBell extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final count =
-        ref.watch(unreadCountProvider).valueOrNull ?? 0;
-    return Stack(children: [
-      IconButton(
-        onPressed: () => context.push(AppRoutes.notifications),
-        icon: const Icon(Icons.notifications_outlined,
-            color: AppColors.onSurfaceVariantDark, size: 22),
-      ),
-      if (count > 0)
-        Positioned(
-          right: 8, top: 8,
-          child: Container(
-            width: 8, height: 8,
-            decoration: BoxDecoration(
-              gradient: AppColors.primaryGradient,
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.gradientStart.withOpacity(0.5),
-                  blurRadius: 4,
-                ),
-              ],
-            ),
+    final count = ref.watch(unreadCountProvider).valueOrNull ?? 0;
+    return Stack(
+      children: [
+        IconButton(
+          onPressed: () => context.push(AppRoutes.notifications),
+          icon: const Icon(
+            Icons.notifications_outlined,
+            color: AppColors.onSurfaceVariant,
           ),
         ),
-    ]);
+        if (count > 0)
+          Positioned(
+            right: 10,
+            top: 10,
+            child: Container(
+              width: 8,
+              height: 8,
+              decoration: const BoxDecoration(
+                color: AppColors.secondary,
+                shape: BoxShape.circle,
+              ),
+            ),
+          ),
+      ],
+    );
   }
 }

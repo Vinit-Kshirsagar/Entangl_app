@@ -54,7 +54,7 @@ class UserModel {
         status:    status    ?? this.status,
       );
 
-  /// Whether this user is fully approved to access the app.
+  /// Fully allowed into the app. Missing/legacy rows default to approved.
   bool get isApproved =>
       status == 'approved' ||
       status == 'approved_email_changed' ||

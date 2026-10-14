@@ -1,18 +1,20 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:timeago/timeago.dart' as timeago;
-import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_text_styles.dart';
+import '../../core/theme/entangl_colors.dart';
 import '../../data/models/post_model.dart';
 import '../../data/services/supabase_service.dart';
+import '../../domain/scrap/scrap_content.dart';
 import '../../features/comments/widgets/comments_sheet.dart';
 import '../../features/feed/providers/feed_provider.dart';
+import '../../features/scraps/widgets/collage_scrap.dart';
+import '../../features/scraps/widgets/photo_scrap.dart';
 import 'avatar_widget.dart';
+import 'emoji_text.dart';
 import 'reactions_sheet.dart';
-import 'avatar_viewer_screen.dart';
-import 'avatar_viewer_screen.dart';
 
 class PostCard extends ConsumerStatefulWidget {
   final PostModel post;
@@ -22,36 +24,12 @@ class PostCard extends ConsumerStatefulWidget {
   ConsumerState<PostCard> createState() => _PostCardState();
 }
 
-class _PostCardState extends ConsumerState<PostCard>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _likeCtrl;
-  late Animation<double>   _likeScale;
+class _PostCardState extends ConsumerState<PostCard> {
   bool _deleting = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _likeCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 200),
-    );
-    _likeScale = Tween<double>(begin: 1.0, end: 1.35).animate(
-      CurvedAnimation(parent: _likeCtrl, curve: Curves.elasticOut),
-    );
-  }
-
-  @override
-  void dispose() { _likeCtrl.dispose(); super.dispose(); }
 
   void _animateLike() {
     HapticFeedback.lightImpact();
-    _likeCtrl.forward().then((_) => _likeCtrl.reverse());
     ref.read(feedProvider.notifier).toggleLike(widget.post.id);
-  }
-
-  void _animateDislike() {
-    HapticFeedback.lightImpact();
-    ref.read(feedProvider.notifier).toggleDislike(widget.post.id);
   }
 
   Future<void> _confirmDelete() async {
@@ -59,17 +37,11 @@ class _PostCardState extends ConsumerState<PostCard>
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: AppColors.surfaceContainerHigh,
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20)),
-        title: const Text('Delete post?',
-            style: TextStyle(
-                color: AppColors.onSurfaceDark,
-                fontWeight: FontWeight.w700)),
-        content: Text('This cannot be undone.',
-            style: TextStyle(
-                color:
-                    AppColors.onSurfaceVariantDark.withOpacity(0.7))),
+        title: Text('Delete post?', style: AppTextStyles.title2),
+        content: Text(
+          'This cannot be undone.',
+          style: AppTextStyles.bodyMedium,
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -77,8 +49,12 @@ class _PostCardState extends ConsumerState<PostCard>
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete',
-                style: TextStyle(color: AppColors.error)),
+            child: Text(
+              'Delete',
+              style: AppTextStyles.labelLarge.copyWith(
+                color: Theme.of(context).colorScheme.error,
+              ),
+            ),
           ),
         ],
       ),
@@ -91,220 +67,120 @@ class _PostCardState extends ConsumerState<PostCard>
 
   @override
   Widget build(BuildContext context) {
-    final post  = widget.post;
+    final post = widget.post;
     final isOwn = post.userId == SupabaseService.currentUserId;
-    final time  = DateTime.tryParse(post.createdAt);
-    final feed  = ref.read(feedProvider.notifier);
-
+    final time = DateTime.tryParse(post.createdAt);
     if (_deleting) return const SizedBox.shrink();
 
+    final palette = context.palette;
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+      margin: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: AppColors.outlineVariant.withOpacity(0.15),
-          width: 1,
-        ),
+        color: palette.surfaceLowest,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: palette.outline, width: 1.5),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-         // ── Header ─────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 8, 0),
-            child: Row(children: [
+          Row(
+            children: [
               GestureDetector(
                 onTap: () => context.push('/profile/${post.userId}'),
-                onLongPress: () {
-                  if (post.author?.avatarUrl != null &&
-                      post.author!.avatarUrl!.isNotEmpty) {
-                    AvatarViewerScreen.show(
-                      context,
-                      imageUrl: post.author!.avatarUrl!,
-                      heroTag: 'avatar_${post.userId}_feed',
-                    );
-                  }
-                },
                 child: AvatarWidget(
                   imageUrl: post.author?.avatarUrl,
-                  size: 42,
-                  heroTag: 'avatar_${post.userId}_feed',
-                  onTap: () => context.push('/profile/${post.userId}'),
+                  size: 32,
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 8),
               Expanded(
                 child: GestureDetector(
                   onTap: () => context.push('/profile/${post.userId}'),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(post.author?.fullName ?? 'Unknown',
-                          style: const TextStyle(
-                            color: AppColors.onSurfaceDark,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: -0.2,
-                          )),
-                      const SizedBox(height: 1),
-                      Row(children: [
-                        Text(
-                          '@${post.author?.username ?? ''}',
-                          style: TextStyle(
-                            color: AppColors.primary.withOpacity(0.8),
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        Text(
-                          '  ·  ${time != null ? timeago.format(time) : ''}',
-                          style: TextStyle(
-                            color: AppColors.onSurfaceVariantDark
-                                .withOpacity(0.5),
-                            fontSize: 12,
-                          ),
-                        ),
-                      ]),
-                    ],
+                  child: Text(
+                    post.author?.username ?? post.author?.fullName ?? 'Unknown',
+                    style: AppTextStyles.bodyLarge.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ),
+              Text(
+                time != null ? timeago.format(time) : '',
+                style: AppTextStyles.timestamp,
+              ),
               if (isOwn)
                 PopupMenuButton<String>(
-                  color: AppColors.surfaceContainerHigh,
+                  color: palette.surfaceLowest,
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16)),
-                  icon: Icon(Icons.more_horiz_rounded,
-                      color: AppColors.onSurfaceVariantDark
-                          .withOpacity(0.5),
-                      size: 20),
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(color: palette.outline, width: 1.5),
+                  ),
+                  icon: Icon(
+                    Icons.more_horiz_rounded,
+                    color: palette.outline,
+                    size: 20,
+                  ),
                   onSelected: (v) {
                     if (v == 'delete') _confirmDelete();
                   },
                   itemBuilder: (_) => [
-                    const PopupMenuItem(
+                    PopupMenuItem(
                       value: 'delete',
-                      child: Row(children: [
-                        Icon(Icons.delete_outline_rounded,
-                            color: AppColors.error, size: 18),
-                        SizedBox(width: 8),
-                        Text('Delete',
-                            style: TextStyle(color: AppColors.error)),
-                      ]),
+                      child: Text(
+                        'Delete',
+                        style: AppTextStyles.bodyMedium.copyWith(
+                          color: palette.error,
+                        ),
+                      ),
                     ),
                   ],
                 ),
-            ]),
+            ],
           ),
-
-          // ── Content ────────────────────────────────────
-          if (post.content.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-              child: Text(post.content,
-                  style: const TextStyle(
-                    color: AppColors.onSurfaceDark,
-                    fontSize: 15,
-                    height: 1.55,
-                    fontWeight: FontWeight.w400,
-                    letterSpacing: -0.1,
-                  )),
-            ),
-
-          // ── Image ───────────────────────────────────────
-          if (post.imageUrl != null && post.imageUrl!.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 12),
-              child: ClipRRect(
-                borderRadius: const BorderRadius.only(
-                  bottomLeft: Radius.circular(24),
-                  bottomRight: Radius.circular(24),
-                ),
-                child: CachedNetworkImage(
-                  imageUrl: post.imageUrl!,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                  placeholder: (_, __) => Container(
-                    height: 220,
-                    color: AppColors.surfaceContainerHigh,
-                    child: const Center(
-                      child: CircularProgressIndicator(
-                          color: AppColors.primary,
-                          strokeWidth: 2),
-                    ),
-                  ),
-                  errorWidget: (_, __, ___) =>
-                      const SizedBox.shrink(),
-                ),
+          const SizedBox(height: 12),
+          switch (post.content) {
+            PhotoContent photo => ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: PhotoScrap(content: photo),
               ),
-            ),
-
-          // ── Actions ─────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
-            child: Row(children: [
-              _ActionChip(
+            CollageContent collage => ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: CollageScrap(content: collage),
+              ),
+            TextContent text => _QuoteFrame(content: text.text),
+          },
+          if (post.caption.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            EmojiText(post.caption, style: AppTextStyles.bodyLarge),
+          ],
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              _Action(
                 icon: post.isLiked
                     ? Icons.favorite_rounded
-                    : Icons.favorite_outline_rounded,
-                color: post.isLiked
-                    ? const Color(0xFFFF4D6D)
-                    : AppColors.onSurfaceVariantDark.withOpacity(0.5),
+                    : Icons.favorite_border_rounded,
                 count: post.likeCount,
-                activeColor: const Color(0x1AFF4D6D),
-                isActive: post.isLiked,
+                active: post.isLiked,
+                color: post.isLiked ? palette.error : palette.onSurface,
                 onTap: _animateLike,
-                scaleAnimation: _likeScale,
               ),
-              const SizedBox(width: 4),
-              _ActionChip(
-                icon: post.isDisliked
-                    ? Icons.thumb_down_rounded
-                    : Icons.thumb_down_outlined,
-                color: post.isDisliked
-                    ? const Color(0xFFFF8C42)
-                    : AppColors.onSurfaceVariantDark.withOpacity(0.5),
-                count: post.dislikeCount,
-                activeColor: const Color(0x1AFF8C42),
-                isActive: post.isDisliked,
-                onTap: _animateDislike,
-              ),
-              const SizedBox(width: 4),
-              _CommentChip(post: post),
+              const SizedBox(width: 8),
+              _CommentAction(post: post),
               const Spacer(),
-              if (post.likeCount + post.dislikeCount > 0)
-                GestureDetector(
-                  onTap: () => showModalBottomSheet(
-                    context: context,
-                    builder: (_) =>
-                        ReactionsSheet(postId: post.id),
-                  ),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: AppColors.surfaceContainerHigh,
-                      borderRadius: BorderRadius.circular(100),
-                    ),
-                    child: Row(children: [
-                      const Text('❤️',
-                          style: TextStyle(fontSize: 11)),
-                      const SizedBox(width: 4),
-                      Text(
-                        '${post.likeCount + post.dislikeCount}',
-                        style: TextStyle(
-                          color: AppColors.onSurfaceVariantDark
-                              .withOpacity(0.7),
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ]),
-                  ),
+              IconButton(
+                onPressed: () => showModalBottomSheet(
+                  context: context,
+                  builder: (_) => ReactionsSheet(postId: post.id),
                 ),
-            ]),
+                icon: Icon(
+                  Icons.ios_share_rounded,
+                  size: 20,
+                  color: palette.onSurface,
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -312,15 +188,36 @@ class _PostCardState extends ConsumerState<PostCard>
   }
 }
 
-class _CommentChip extends ConsumerStatefulWidget {
-  final PostModel post;
-  const _CommentChip({required this.post});
+class _QuoteFrame extends StatelessWidget {
+  final String content;
+  const _QuoteFrame({required this.content});
 
   @override
-  ConsumerState<_CommentChip> createState() => _CommentChipState();
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: context.palette.quoteWash,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: EmojiText(
+        '"$content"',
+        style: AppTextStyles.quote,
+      ),
+    );
+  }
 }
 
-class _CommentChipState extends ConsumerState<_CommentChip> {
+class _CommentAction extends ConsumerStatefulWidget {
+  final PostModel post;
+  const _CommentAction({required this.post});
+
+  @override
+  ConsumerState<_CommentAction> createState() => _CommentActionState();
+}
+
+class _CommentActionState extends ConsumerState<_CommentAction> {
   late int _count;
 
   @override
@@ -331,12 +228,11 @@ class _CommentChipState extends ConsumerState<_CommentChip> {
 
   @override
   Widget build(BuildContext context) {
-    return _ActionChip(
+    return _Action(
       icon: Icons.chat_bubble_outline_rounded,
-      color: AppColors.onSurfaceVariantDark.withOpacity(0.5),
       count: _count,
-      activeColor: Colors.transparent,
-      isActive: false,
+      active: false,
+      color: context.palette.onSurface,
       onTap: () => showModalBottomSheet(
         context: context,
         isScrollControlled: true,
@@ -352,59 +248,100 @@ class _CommentChipState extends ConsumerState<_CommentChip> {
   }
 }
 
-class _ActionChip extends StatelessWidget {
-  final IconData   icon;
-  final Color      color;
-  final int        count;
-  final Color      activeColor;
-  final bool       isActive;
+class _Action extends StatelessWidget {
+  final IconData icon;
+  final int count;
+  final bool active;
+  final Color color;
   final VoidCallback onTap;
-  final Animation<double>? scaleAnimation;
 
-  const _ActionChip({
+  const _Action({
     required this.icon,
-    required this.color,
     required this.count,
-    required this.activeColor,
-    required this.isActive,
+    required this.active,
+    required this.color,
     required this.onTap,
-    this.scaleAnimation,
   });
 
   @override
   Widget build(BuildContext context) {
-    Widget iconWidget = Icon(icon, color: color, size: 19);
-    if (scaleAnimation != null) {
-      iconWidget =
-          ScaleTransition(scale: scaleAnimation!, child: iconWidget);
-    }
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(999),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        child: Row(
+          children: [
+            Icon(icon, color: color, size: 20),
+            if (count > 0) ...[
+              const SizedBox(width: 6),
+              Text(
+                '$count',
+                style: AppTextStyles.labelMedium.copyWith(color: color),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+@Deprecated('Use ScrapCard inside MasonryFeed')
+class ScrapPin extends StatelessWidget {
+  final PostModel post;
+  final VoidCallback? onTap;
+
+  const ScrapPin({super.key, required this.post, this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
     return GestureDetector(
       onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(
-            horizontal: 10, vertical: 7),
+      child: Container(
         decoration: BoxDecoration(
-          color: isActive ? activeColor : Colors.transparent,
-          borderRadius: BorderRadius.circular(100),
+          color: palette.surfaceLowest,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: palette.outline, width: 1.5),
         ),
-        child: Row(children: [
-          iconWidget,
-          if (count > 0) ...[
-            const SizedBox(width: 5),
-            Text(
-              '$count',
-              style: TextStyle(
-                color: isActive
-                    ? color
-                    : AppColors.onSurfaceVariantDark
-                        .withOpacity(0.5),
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            switch (post.content) {
+              PhotoContent photo => PhotoScrap(content: photo),
+              CollageContent collage => CollageScrap(content: collage),
+              TextContent text => ColoredBox(
+                  color: palette.quoteWash,
+                  child: Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: Center(
+                      child: EmojiText(
+                        text.text,
+                        maxLines: 8,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                        style: AppTextStyles.bodyMedium.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            },
+            if (post.caption.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+                child: EmojiText(
+                  post.caption,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTextStyles.labelLarge,
+                ),
               ),
-            ),
           ],
-        ]),
+        ),
       ),
     );
   }

@@ -1,17 +1,13 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
-import 'avatar_viewer_screen.dart';
-import 'avatar_viewer_screen.dart';
 
 class AvatarWidget extends StatelessWidget {
   final String? imageUrl;
-  final double  size;
-  final bool    showRing;
+  final double size;
+  final bool showRing;
   final VoidCallback? onTap;
-  // When set, tapping the avatar opens the full-screen viewer
-  // with a Hero animation keyed to this tag.
-  final String? heroTag;
+  final Color? ringColor;
 
   const AvatarWidget({
     super.key,
@@ -19,48 +15,44 @@ class AvatarWidget extends StatelessWidget {
     this.size = 44,
     this.showRing = false,
     this.onTap,
-    this.heroTag,
+    this.ringColor,
   });
 
   @override
   Widget build(BuildContext context) {
-    final hasImage = imageUrl != null && imageUrl!.isNotEmpty;
-
     Widget avatar = Container(
-      width:  size,
+      width: size,
       height: size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: AppColors.surfaceContainerHigh,
+        color: AppColors.surfaceHigh,
+        border: Border.all(color: AppColors.outline, width: 1.5),
       ),
       child: ClipOval(
-        child: hasImage
-            ? Hero(
-                tag: heroTag ?? imageUrl!,
-                child: CachedNetworkImage(
-                  imageUrl: imageUrl!,
-                  width:  size,
-                  height: size,
-                  fit: BoxFit.cover,
-                  placeholder: (_, __) => Container(
-                    color: AppColors.surfaceContainerHigh,
-                    child: Icon(
-                      Icons.person_rounded,
-                      size: size * 0.45,
-                      color: AppColors.outlineVariant,
-                    ),
-                  ),
-                  errorWidget: (_, __, ___) => Icon(
+        child: imageUrl != null && imageUrl!.isNotEmpty
+            ? CachedNetworkImage(
+                imageUrl: imageUrl!,
+                width: size,
+                height: size,
+                fit: BoxFit.cover,
+                placeholder: (_, __) => Container(
+                  color: AppColors.surfaceHigh,
+                  child: Icon(
                     Icons.person_rounded,
                     size: size * 0.45,
-                    color: AppColors.outlineVariant,
+                    color: AppColors.outline,
                   ),
+                ),
+                errorWidget: (_, __, ___) => Icon(
+                  Icons.person_rounded,
+                  size: size * 0.45,
+                  color: AppColors.outline,
                 ),
               )
             : Icon(
                 Icons.person_rounded,
                 size: size * 0.45,
-                color: AppColors.outlineVariant,
+                color: AppColors.outline,
               ),
       ),
     );
@@ -68,36 +60,24 @@ class AvatarWidget extends StatelessWidget {
     if (showRing) {
       avatar = Container(
         padding: const EdgeInsets.all(2.5),
-        decoration: const BoxDecoration(
-          gradient: AppColors.avatarRingGradient,
+        decoration: BoxDecoration(
           shape: BoxShape.circle,
+          color: ringColor ?? AppColors.secondaryContainer,
+          border: Border.all(color: AppColors.outline, width: 1.5),
         ),
         child: Container(
           padding: const EdgeInsets.all(2),
           decoration: const BoxDecoration(
-            color: AppColors.backgroundDark,
             shape: BoxShape.circle,
+            color: AppColors.surface,
           ),
           child: avatar,
         ),
       );
     }
 
-    // Determine tap behaviour:
-    // 1. Custom onTap overrides everything
-    // 2. If imageUrl exists, open full-screen viewer
-    // 3. Otherwise nothing
-    final effectiveTap = onTap ??
-        (hasImage
-            ? () => AvatarViewerScreen.show(
-                  context,
-                  imageUrl: imageUrl!,
-                  heroTag: heroTag ?? imageUrl!,
-                )
-            : null);
-
-    if (effectiveTap != null) {
-      return GestureDetector(onTap: effectiveTap, child: avatar);
+    if (onTap != null) {
+      return GestureDetector(onTap: onTap, child: avatar);
     }
     return avatar;
   }

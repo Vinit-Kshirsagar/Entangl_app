@@ -4,7 +4,6 @@ import '../../../data/models/user_model.dart';
 import '../../../data/repositories/users_repository.dart';
 import '../../profile/providers/profile_provider.dart';
 
-/// State for the admin requests screen.
 class AdminRequestsState {
   final List<UserModel> pendingUsers;
   final List<UserModel> emailChangeRequests;
@@ -12,24 +11,27 @@ class AdminRequestsState {
   final String? actionLoadingId;
 
   const AdminRequestsState({
-    this.pendingUsers         = const [],
-    this.emailChangeRequests  = const [],
-    this.isLoading            = true,
+    this.pendingUsers = const [],
+    this.emailChangeRequests = const [],
+    this.isLoading = true,
     this.actionLoadingId,
   });
 
   AdminRequestsState copyWith({
     List<UserModel>? pendingUsers,
     List<UserModel>? emailChangeRequests,
-    bool?    isLoading,
-    String?  actionLoadingId,
-    bool     clearActionLoading = false,
-  }) => AdminRequestsState(
-    pendingUsers:        pendingUsers        ?? this.pendingUsers,
-    emailChangeRequests: emailChangeRequests ?? this.emailChangeRequests,
-    isLoading:           isLoading           ?? this.isLoading,
-    actionLoadingId:     clearActionLoading ? null : (actionLoadingId ?? this.actionLoadingId),
-  );
+    bool? isLoading,
+    String? actionLoadingId,
+    bool clearActionLoading = false,
+  }) =>
+      AdminRequestsState(
+        pendingUsers: pendingUsers ?? this.pendingUsers,
+        emailChangeRequests: emailChangeRequests ?? this.emailChangeRequests,
+        isLoading: isLoading ?? this.isLoading,
+        actionLoadingId: clearActionLoading
+            ? null
+            : (actionLoadingId ?? this.actionLoadingId),
+      );
 }
 
 class AdminRequestsNotifier extends Notifier<AdminRequestsState> {
@@ -46,9 +48,9 @@ class AdminRequestsNotifier extends Notifier<AdminRequestsState> {
       final pending = await _repo.getPendingUsers();
       final emailChanges = await _repo.getEmailChangeRequests();
       state = state.copyWith(
-        pendingUsers:        pending,
+        pendingUsers: pending,
         emailChangeRequests: emailChanges,
-        isLoading:           false,
+        isLoading: false,
       );
     } catch (e) {
       debugPrint('ENTANGL admin fetch error: $e');

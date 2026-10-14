@@ -7,6 +7,7 @@ import '../../../data/services/supabase_service.dart';
 import '../../../features/stories/widgets/create_story_sheet.dart';
 import '../../feed/providers/feed_provider.dart';
 import '../../profile/providers/profile_provider.dart';
+import '../../profile/providers/scraps_provider.dart';
 import '../providers/create_post_provider.dart';
 import '../widgets/create_post_form.dart';
 
@@ -22,6 +23,7 @@ class CreatePostScreen extends ConsumerWidget {
         if (uid != null) {
           ref.invalidate(profileStatsProvider(uid));
           ref.invalidate(userPostsProvider(uid));
+          ref.invalidate(scrapsProvider(uid));
         }
         ref.invalidate(createPostProvider);
         context.pop();
@@ -29,10 +31,8 @@ class CreatePostScreen extends ConsumerWidget {
       if (next.error != null) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(next.error!),
-          backgroundColor: AppColors.errorContainer,
+          backgroundColor: AppColors.error,
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12)),
         ));
       }
     });
@@ -40,55 +40,41 @@ class CreatePostScreen extends ConsumerWidget {
     final state = ref.watch(createPostProvider);
 
     return Scaffold(
-      backgroundColor: AppColors.backgroundDark,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: AppColors.backgroundDark,
+        backgroundColor: AppColors.surface,
         elevation: 0,
+        centerTitle: true,
         leading: IconButton(
           onPressed: () {
             ref.invalidate(createPostProvider);
             context.pop();
           },
-          icon: const Icon(Icons.close_rounded,
-              color: AppColors.onSurfaceDark),
+          icon: const Icon(Icons.close_rounded, color: AppColors.onSurface),
         ),
-        title: Text('New Post',
-            style: AppTextStyles.labelLarge
-                .copyWith(color: AppColors.onSurfaceDark)),
+        title: Text(
+          'New Entanglement',
+          style: AppTextStyles.title2.copyWith(
+            color: AppColors.primary,
+            fontStyle: FontStyle.italic,
+          ),
+        ),
         actions: [
-          // Story button
-          Padding(
-            padding:
-                const EdgeInsets.only(right: 4, top: 8, bottom: 8),
-            child: GestureDetector(
-              onTap: () => showModalBottomSheet(
-                context: context,
-                backgroundColor: Colors.transparent,
-                isScrollControlled: true,
-                builder: (_) => const CreateStorySheet(),
-              ),
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceContainerHigh,
-                  borderRadius: BorderRadius.circular(100),
-                ),
-                child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  const Icon(Icons.auto_awesome_rounded,
-                      color: AppColors.primary, size: 16),
-                  const SizedBox(width: 5),
-                  Text('Story',
-                      style: AppTextStyles.labelMedium
-                          .copyWith(color: AppColors.primary)),
-                ]),
-              ),
+          IconButton(
+            tooltip: 'Story',
+            onPressed: () => showModalBottomSheet(
+              context: context,
+              backgroundColor: Colors.transparent,
+              isScrollControlled: true,
+              builder: (_) => const CreateStorySheet(),
+            ),
+            icon: const Icon(
+              Icons.auto_awesome_rounded,
+              color: AppColors.secondary,
             ),
           ),
-          // Post button — uses canSubmit
           Padding(
-            padding: const EdgeInsets.only(
-                right: 16, top: 8, bottom: 8),
+            padding: const EdgeInsets.only(right: 12, top: 10, bottom: 10),
             child: _PostButton(state: state),
           ),
         ],
@@ -98,52 +84,55 @@ class CreatePostScreen extends ConsumerWidget {
   }
 }
 
-class _PostButton extends ConsumerWidget {
+class _PostButton extends ConsumerStatefulWidget {
   final CreatePostState state;
   const _PostButton({required this.state});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final canPost = state.canSubmit;
+  ConsumerState<_PostButton> createState() => _PostButtonState();
+}
+
+class _PostButtonState extends ConsumerState<_PostButton> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final canPost = widget.state.canSubmit;
     return GestureDetector(
+      onTapDown: canPost ? (_) => setState(() => _pressed = true) : null,
+      onTapUp: canPost ? (_) => setState(() => _pressed = false) : null,
+      onTapCancel: () => setState(() => _pressed = false),
       onTap: canPost
           ? () => ref.read(createPostProvider.notifier).submit()
           : null,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(
-            horizontal: 20, vertical: 8),
-        decoration: BoxDecoration(
-          gradient: canPost ? AppColors.primaryGradient : null,
-          color: canPost
-              ? null
-              : AppColors.surfaceContainerHigh,
-          borderRadius: BorderRadius.circular(100),
-          boxShadow: canPost
-              ? [
-                  BoxShadow(
-                    color:
-                        AppColors.gradientStart.withOpacity(0.3),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  )
-                ]
-              : null,
+        duration: const Duration(milliseconds: 90),
+        transform: Matrix4.translationValues(
+          _pressed ? 2 : 0,
+          _pressed ? 2 : 0,
+          0,
         ),
-        child: state.isSubmitting
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: canPost ? AppColors.surfaceLowest : AppColors.surfaceHigh,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: AppColors.onSurface, width: 1.5),
+          boxShadow: canPost && !_pressed ? AppColors.shadowCard : null,
+        ),
+        child: widget.state.isSubmitting
             ? const SizedBox(
-                width: 16, height: 16,
+                width: 14,
+                height: 14,
                 child: CircularProgressIndicator(
-                    strokeWidth: 2, color: Colors.white))
+                  strokeWidth: 2,
+                  color: AppColors.onSurface,
+                ),
+              )
             : Text(
                 'Post',
-                style: TextStyle(
-                  color: canPost
-                      ? Colors.white
-                      : AppColors.onSurfaceVariantDark
-                          .withOpacity(0.3),
-                  fontWeight: FontWeight.w700,
-                  fontSize: 14,
+                style: AppTextStyles.labelSmall.copyWith(
+                  color: canPost ? AppColors.onSurface : AppColors.outline,
+                  letterSpacing: 0.4,
                 ),
               ),
       ),

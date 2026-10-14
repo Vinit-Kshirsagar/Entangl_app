@@ -1,6 +1,6 @@
 import 'user_model.dart';
 
-enum NotificationType { follow, like, dislike, comment, reply }
+enum NotificationType { follow, like, dislike, comment, reply, newPost }
 
 class NotificationModel {
   final String id;
@@ -60,12 +60,20 @@ class NotificationModel {
 
   static NotificationType _parseType(String t) {
     switch (t) {
-      case 'follow':  return NotificationType.follow;
-      case 'like':    return NotificationType.like;
-      case 'dislike': return NotificationType.dislike;
-      case 'comment': return NotificationType.comment;
-      case 'reply':   return NotificationType.reply;
-      default:        return NotificationType.like;
+      case 'follow':
+        return NotificationType.follow;
+      case 'like':
+        return NotificationType.like;
+      case 'dislike':
+        return NotificationType.dislike;
+      case 'comment':
+        return NotificationType.comment;
+      case 'reply':
+        return NotificationType.reply;
+      case 'new_post':
+        return NotificationType.newPost;
+      default:
+        return NotificationType.like;
     }
   }
 

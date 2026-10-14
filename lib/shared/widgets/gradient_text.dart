@@ -1,27 +1,25 @@
 import 'package:flutter/material.dart';
-import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_text_styles.dart';
 
-// Gradient text widget used for the Entangl brand wordmark
 class GradientText extends StatelessWidget {
   final String text;
   final TextStyle? style;
-  final Gradient gradient;
+  final Gradient? gradient;
 
   const GradientText(
     this.text, {
     super.key,
     this.style,
-    this.gradient = AppColors.primaryGradient,
+    this.gradient,
   });
 
   @override
   Widget build(BuildContext context) {
-    return ShaderMask(
-      blendMode: BlendMode.srcIn,
-      shaderCallback: (bounds) => gradient.createShader(
-        Rect.fromLTWH(0, 0, bounds.width, bounds.height),
+    return Text(
+      text,
+      style: (style ?? AppTextStyles.brandName).copyWith(
+        fontStyle: FontStyle.italic,
       ),
-      child: Text(text, style: style),
     );
   }
 }
