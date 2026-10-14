@@ -51,3 +51,4 @@ lib/core/secrets.dart.example
 ui_ux
 DESIGN.md
 PRODUCT.md
+android/app/google-services.json
